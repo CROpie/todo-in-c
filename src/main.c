@@ -110,6 +110,32 @@ void freeAll(TodoList* todoList) {
   trackFree(todoList);
 }
 
+void addTodo(TodoList* todoList, int index) {
+    Todo* todo = (Todo*) trackMalloc(sizeof(Todo), "todo");
+    todo->id = index;
+    char* message = createMessage(index);
+    todo->message = message;
+    todoList->todos[index] = todo;
+    todoList->numTodos++;
+}
+
+// delete by re-creating todolist
+// conceptually just like todos.filter((todo) => todo.id !== deleteId)
+TodoList* deleteTodo(TodoList* todoList, int todoId) {
+  TodoList* updatedTodoList = (TodoList*) trackMalloc(sizeof(TodoList), "todolist");
+  updatedTodoList->numTodos = 0;
+  for (int i = 0; i < todoList->numTodos; i++) {
+    if (todoList->todos[i]->id == todoId) {
+      trackFree(todoList->todos[i]->message);
+      trackFree(todoList->todos[i]);
+      continue;
+    }
+    updatedTodoList->todos[updatedTodoList->numTodos++] = todoList->todos[i];
+  }
+  trackFree(todoList);
+  return updatedTodoList;
+}
+
 int main() {
   // reference pointer for monitoring memory
   basePtr = malloc(8);
@@ -117,13 +143,10 @@ int main() {
   todoList->numTodos = 0;
   int count = 10;
   for (int i = 0; i < count; i++) {
-    Todo* todo = (Todo*) trackMalloc(sizeof(Todo), "todo");
-    todo->id = i;
-    char* message = createMessage(i);
-    todo->message = message;
-    todoList->todos[i] = todo;
-    todoList->numTodos++;
+    addTodo(todoList, i);
   }
+  print_allocations();
+  todoList = deleteTodo(todoList, 3);
   print_allocations();
   freeAll(todoList); 
   print_allocations();

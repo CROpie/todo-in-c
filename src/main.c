@@ -18,6 +18,7 @@ typedef struct MemEntry {
 MemEntry *head = NULL;
 void* basePtr;
 int memCtr = 0;
+int todoId = 0;
 
 typedef struct {
   int id;
@@ -28,6 +29,12 @@ typedef struct {
   int numTodos;
   Todo* todos[MAX_TODOS];
 } TodoList;
+
+typedef struct {
+  char* buffer;
+  size_t buffer_length;
+  ssize_t input_length;
+} InputBuffer;
 
 // Custom malloc for logging
 void* trackMalloc(size_t size, char* type) {
@@ -89,7 +96,7 @@ void printTodo(Todo* todo) {
 }
 
 void printAllTodos(TodoList* todoList) {
-  for (int i = 1; i < todoList->numTodos + 1; i++) {
+  for (int i = 0; i < todoList->numTodos; i++) {
     printTodo(todoList->todos[i]);
   }
 }
@@ -110,7 +117,7 @@ void freeAll(TodoList* todoList) {
   trackFree(todoList);
 }
 
-void addTodo(TodoList* todoList, int index) {
+void addTodoOld(TodoList* todoList, int index) {
     Todo* todo = (Todo*) trackMalloc(sizeof(Todo), "todo");
     todo->id = index;
     char* message = createMessage(index);
@@ -121,7 +128,7 @@ void addTodo(TodoList* todoList, int index) {
 
 // delete by re-creating todolist
 // conceptually just like todos.filter((todo) => todo.id !== deleteId)
-TodoList* deleteTodo(TodoList* todoList, int todoId) {
+TodoList* deleteTodoOld(TodoList* todoList, int todoId) {
   TodoList* updatedTodoList = (TodoList*) trackMalloc(sizeof(TodoList), "todolist");
   updatedTodoList->numTodos = 0;
   for (int i = 0; i < todoList->numTodos; i++) {
@@ -136,19 +143,84 @@ TodoList* deleteTodo(TodoList* todoList, int todoId) {
   return updatedTodoList;
 }
 
+void printCL() {
+  printf("> ");
+}
+
+InputBuffer* new_input_buffer() {
+  InputBuffer* IB = (InputBuffer*) trackMalloc(sizeof(InputBuffer), "buffer");
+  IB->buffer = NULL;
+  IB->buffer_length = 0;
+  IB->input_length = 0;
+  return IB;
+}
+
+void getUserInput(InputBuffer* IB) {
+  ssize_t bytes_read = getline(&(IB->buffer), &(IB->buffer_length), stdin);
+  IB->input_length = bytes_read - 1;
+  IB->buffer[bytes_read - 1] = 0;
+}
+
+void addTodo(TodoList* todoList, char* input) {
+    Todo* todo = (Todo*) trackMalloc(sizeof(Todo), "todo");
+    todo->id = todoId++;
+    char* message = trackMalloc(strlen(input + 4) + 1, "message"); 
+    strcpy(message, input + 4);
+    todo->message = message;
+    todoList->todos[todoList->numTodos] = todo;
+    todoList->numTodos++;
+}
+
+void deleteTodo(TodoList* todoList, char* input) {
+  // extract id to delete
+  char* message = trackMalloc(strlen(input + 7) + 1, "message"); 
+  char* end;
+  strcpy(message, input + 7);
+  int id = strtol(message, &end, 10);
+  printf("id: %d\n", id);
+  if (*end != '\0') {
+    printf("Invalid number\n");
+  }
+  TodoList* updatedTodoList = (TodoList*) trackMalloc(sizeof(TodoList), "todolist");
+  updatedTodoList->numTodos = 0;
+  for (int i = 0; i < todoList->numTodos; i++) {
+    if (todoList->todos[i]->id == id) {
+      trackFree(todoList->todos[i]->message);
+      trackFree(todoList->todos[i]);
+      continue;
+    }
+    updatedTodoList->todos[updatedTodoList->numTodos++] = todoList->todos[i];
+  }
+
+  printAllTodos(updatedTodoList);
+  // trackFree(todoList);
+  // Doesn't work: need to replace a pointer to this pointer
+  // todoList = updatedTodoList;
+}
+
+void parseUserInput(TodoList* todoList, char* input) {
+    if (strncmp(input, "add ", 4) == 0) {
+      addTodo(todoList, input);
+    }
+    if (strncmp(input, "delete ", 7) == 0) {
+      deleteTodo(todoList, input);
+    }
+}
+
 int main() {
-  // reference pointer for monitoring memory
   basePtr = malloc(8);
+  InputBuffer* IB = new_input_buffer();
   TodoList* todoList = (TodoList*) trackMalloc(sizeof(TodoList), "todolist");
   todoList->numTodos = 0;
-  int count = 10;
-  for (int i = 0; i < count; i++) {
-    addTodo(todoList, i);
+  while (1) {
+    printAllTodos(todoList);
+    printCL();
+    getUserInput(IB);
+    if (strcmp(IB->buffer, "exit") == 0) {
+      break;
+    }
+    parseUserInput(todoList, IB->buffer);
   }
-  print_allocations();
-  todoList = deleteTodo(todoList, 3);
-  print_allocations();
-  freeAll(todoList); 
-  print_allocations();
-  return 1;
+  return 0;
 }
+

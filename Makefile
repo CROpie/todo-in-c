@@ -1,8 +1,11 @@
 # Compiler
 cc = gcc
 
+# Compiler flags
+CFLAGS = -Iinclude
+
 # Source files
-SRCS = src/main.c
+SRCS = src/main.c src/memory.c src/todo.c
 
 # Object files
 OBJS = $(SRCS:.c=.o)
